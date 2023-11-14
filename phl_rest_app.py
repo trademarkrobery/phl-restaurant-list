@@ -1,22 +1,21 @@
 import streamlit as st
 import pandas as pd
-import requests
-from io import BytesIO
 
-# Google Sheets direct download link for .xlsx
-url = 'https://docs.google.com/spreadsheets/d/1c16TVukKgu3aAjOUROtalXxBOkN0M825/export?format=xlsx'
-
-# Downloading the file content
-response = requests.get(url)
-file = BytesIO(response.content)
+st.set_page_config(layout="wide")
 
 # Load data, specifying the engine
-data = pd.read_excel(file, engine='openpyxl')
+data = pd.read_excel('Restaurant_Table.xlsx', engine='openpyxl')
 data['Visited'] = data['Visited'].apply(lambda x: True if x == 'Yes' else False)
 
-# Convert 'Visited' to a more user-friendly format for editing
-data_for_editing = data.copy()
-data_for_editing['Visited'] = data_for_editing['Visited'].apply(lambda x: "Visited" if x else "Not Visited")
+
+
+# Initialize session state for visited status
+if 'visited_status' not in st.session_state:
+    st.session_state['visited_status'] = data['Visited'].tolist()
+
+# Function to update session state
+def update_visited_status(index, value):
+    st.session_state['visited_status'][index] = value
 
 # Streamlit app layout
 st.title('Restaurant Tracker')
@@ -24,19 +23,18 @@ st.title('Restaurant Tracker')
 all, visited, not_visited = st.tabs(["All", "Visited", "Not Visited"])
 
 with all:
-    st.header("All Restaurants")
-    # Editable DataFrame
-    edited_df = st.data_editor(data_for_editing)
     
-    # Reflect changes in the original data
-    data['Visited'] = edited_df['Visited'] == "Visited"
+    st.header("All Restaurants")    
+    edited_df = st.data_editor(data, num_rows="dynamic")
+
 
 with visited:
     st.header("Visited Restaurants")
-    visited_restaurants = data[data['Visited']]
+    visited_restaurants = data[pd.Series(st.session_state['visited_status'])]
     st.dataframe(visited_restaurants[['Restaurant', 'Location', 'Cuisine Style']])
 
 with not_visited:
     st.header("Not Visited Restaurants")
-    not_visited_restaurants = data[~data['Visited']]
+    not_visited_mask = ~pd.Series(st.session_state['visited_status'])
+    not_visited_restaurants = data[not_visited_mask]
     st.dataframe(not_visited_restaurants[['Restaurant', 'Location', 'Cuisine Style']])
