@@ -14,13 +14,9 @@ file = BytesIO(response.content)
 data = pd.read_excel(file, engine='openpyxl')
 data['Visited'] = data['Visited'].apply(lambda x: True if x == 'Yes' else False)
 
-# Initialize session state
-if 'visited_status' not in st.session_state:
-    st.session_state['visited_status'] = data['Visited'].tolist()
-
-# Function to update session state
-def update_visited_status(index, value):
-    st.session_state['visited_status'][index] = value
+# Convert 'Visited' to a more user-friendly format for editing
+data_for_editing = data.copy()
+data_for_editing['Visited'] = data_for_editing['Visited'].apply(lambda x: "Visited" if x else "Not Visited")
 
 # Streamlit app layout
 st.title('Restaurant Tracker')
@@ -29,23 +25,18 @@ all, visited, not_visited = st.tabs(["All", "Visited", "Not Visited"])
 
 with all:
     st.header("All Restaurants")
-    for i, row in data.iterrows():
-        # Using selectbox for each row
-        visited_status = st.selectbox(f"{row['Restaurant']}, {row['Location']}, {row['Cuisine Style']}", 
-                                      ["Not Visited", "Visited"], index=int(st.session_state['visited_status'][i]),
-                                      key=f'selectbox_{i}')
-        # Update the visited status based on selection
-        new_status = True if visited_status == "Visited" else False
-        if new_status != st.session_state['visited_status'][i]:
-            update_visited_status(i, new_status)
+    # Editable DataFrame
+    edited_df = st.data_editor(data_for_editing)
+    
+    # Reflect changes in the original data
+    data['Visited'] = edited_df['Visited'] == "Visited"
 
 with visited:
     st.header("Visited Restaurants")
-    visited_restaurants = data[pd.Series(st.session_state['visited_status'])]
+    visited_restaurants = data[data['Visited']]
     st.dataframe(visited_restaurants[['Restaurant', 'Location', 'Cuisine Style']])
 
 with not_visited:
     st.header("Not Visited Restaurants")
-    not_visited_mask = ~pd.Series(st.session_state['visited_status'])
-    not_visited_restaurants = data[not_visited_mask]
+    not_visited_restaurants = data[~data['Visited']]
     st.dataframe(not_visited_restaurants[['Restaurant', 'Location', 'Cuisine Style']])
